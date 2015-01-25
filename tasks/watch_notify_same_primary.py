@@ -5,6 +5,7 @@ watch_notify_same_primary task
 from cStringIO import StringIO
 import contextlib
 import logging
+import time
 
 from teuthology.orchestra import run
 
@@ -57,7 +58,7 @@ def task(ctx, config):
                 obj(n),
                 "/etc/resolv.conf"],
             logger=log.getChild('watch.{id}'.format(id=n)))
-        return remote.run(
+        proc = remote.run(
             args = [
                 "rados",
                 "-p", pool,
@@ -67,6 +68,13 @@ def task(ctx, config):
             stdout=StringIO(),
             stderr=StringIO(),
             wait=False)
+        # wait for first line indicating watch is registered and ready
+        # to see notify events
+        line = proc.stdout.readline()
+        log.info(line)
+        assert 'press enter' in line
+        return proc
+
     watches = [start_watch(i) for i in range(20)]
 
     def notify(n, msg):
