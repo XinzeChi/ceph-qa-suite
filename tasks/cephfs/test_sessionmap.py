@@ -47,6 +47,7 @@ class TestSessionMap(CephFSTestCase):
         # See that we persist their sessions
         self.fs.mds_asok(["flush", "journal"], rank_0_id)
         table_json = json.loads(self.fs.table_tool(["0", "show", "session"]))
+        log.info("SessionMap: {0}".format(json.dumps(table_json, indent=2)))
         self.assertEqual(table_json['0']['result'], 0)
         self.assertEqual(len(table_json['0']['data']['Sessions']), 2)
 
@@ -66,3 +67,17 @@ class TestSessionMap(CephFSTestCase):
         # OMAP inline rather than simply saving up the modifications.
         # The number of writes is two, because the header (sessionmap version) update and KV write both count.
         self.assertEqual(get_omap_wrs() - initial_omap_wrs, 2)
+
+        # Now end our sessions and check the backing sessionmap is updated correctly
+        self.mount_a.umount_wait()
+        self.mount_b.umount_wait()
+
+        # In-memory sessionmap check
+        self.assert_session_count(0, mds_id=rank_0_id)
+
+        # On-disk sessionmap check
+        self.fs.mds_asok(["flush", "journal"], rank_0_id)
+        table_json = json.loads(self.fs.table_tool(["0", "show", "session"]))
+        log.info("SessionMap: {0}".format(json.dumps(table_json, indent=2)))
+        self.assertEqual(table_json['0']['result'], 0)
+        self.assertEqual(len(table_json['0']['data']['Sessions']), 0)
