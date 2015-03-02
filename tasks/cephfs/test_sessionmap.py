@@ -21,7 +21,7 @@ class TestSessionMap(CephFSTestCase):
         self.mount_b.umount_wait()
 
         # Configure MDS to write one OMAP key at once
-        self.set_conf('mds', 'mds_sessionmap_keys_per_op', 2)
+        self.set_conf('mds', 'mds_sessionmap_keys_per_op', 1)
         self.fs.mds_fail_restart()
         self.fs.wait_for_daemons()
 
@@ -59,13 +59,20 @@ class TestSessionMap(CephFSTestCase):
         def get_omap_wrs():
             return self.fs.mds_asok(['perf', 'dump', 'objecter'], rank_1_id)['objecter']['omap_wr']
 
+        # Flush so that there are no dirty sessions on rank 1
+        self.fs.mds_asok(["flush", "journal"], rank_1_id)
+
+        # Export so that we get a force_open to rank 1 for the two sessions from rank 0
         initial_omap_wrs = get_omap_wrs()
         self.fs.mds_asok(['export', 'dir', '/bravo', '1'], rank_0_id)
 
         # This is the critical (if rather subtle) check: that in the process of doing an export dir,
-        # we hit force_open_sessions, and as a result we end up writing out the sessionmap
-        # OMAP inline rather than simply saving up the modifications.
-        # The number of writes is two, because the header (sessionmap version) update and KV write both count.
+        # we hit force_open_sessions, and as a result we end up writing out the sessionmap.  There
+        # will be two sessions dirtied here, and because we have set keys_per_op to 1, we should see
+        # a single session get written out (the first of the two, triggered by the second getting marked
+        # dirty)
+        # The number of writes is two per session, because the header (sessionmap version) update and
+        # KV write both count.
         self.assertEqual(get_omap_wrs() - initial_omap_wrs, 2)
 
         # Now end our sessions and check the backing sessionmap is updated correctly
