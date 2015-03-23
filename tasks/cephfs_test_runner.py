@@ -65,6 +65,42 @@ class InteractiveFailureResult(unittest.TextTestResult):
 
 @contextlib.contextmanager
 def task(ctx, config):
+    """
+    Run the CephFS test cases.
+
+    Run everything in tasks/cephfs/test_*.py:
+
+    ::
+
+        tasks:
+          - install:
+          - ceph:
+          - ceph-fuse:
+          - cephfs_test_runner:
+
+    `modules` argument allows running only some specific modules:
+
+    ::
+
+        tasks:
+            ...
+          - cephfs_test_runner:
+              modules:
+                - tasks.cephfs.test_sessionmap
+                - tasks.cephfs.test_auto_repair
+
+    By default, any cases that can't be run on the current cluster configuration
+    will generate a failure.  When the optional `fail_on_skip` argument is set
+    to false, any tests that can't be run on the current configuration will
+    simply be skipped:
+
+    ::
+        tasks:
+            ...
+         - cephfs_test_runner:
+           fail_on_skip: false
+
+    """
     fs = Filesystem(ctx)
 
     # Mount objects, sorted by ID
@@ -75,6 +111,8 @@ def task(ctx, config):
         "mounts": mounts,
         "fs": fs
     })
+
+    fail_on_skip = config.get('fail_on_skip', True)
 
     # Put useful things onto ctx for interactive debugging
     ctx.fs = fs
@@ -105,6 +143,13 @@ def task(ctx, config):
         def startTest(self, test):
             log.info("Starting test: {0}".format(self.getDescription(test)))
             return super(LoggingResult, self).startTest(test)
+
+        def addSkip(self, test, reason):
+            if fail_on_skip:
+                # Don't just call addFailure because that requires a traceback
+                self.failures.append((test, reason))
+            else:
+                super(LoggingResult, self).addSkip(test, reason)
 
     # Execute!
     result = unittest.TextTestRunner(
