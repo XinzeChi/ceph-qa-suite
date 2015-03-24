@@ -75,21 +75,21 @@ def task(ctx, config):
     watches = [start_watch(i) for i in range(num)]
 
     # wait for them all to register
-    while True:
-        proc = remote.run(
-            args = [
-                "rados",
-                "-p", pool,
-                "listwatchers",
-                obj(n)],
-            stdout=StringIO())
-        lines = proc.stdout.getvalue().split("\n")
-        n = int(lines)
-        log.info('i see %d watchers', n)
-        if n => num:
-            break
-        time.sleep(1)
-
+    with safe_while() as proceed:
+        while proceed():
+            proc = remote.run(
+                args = [
+                    "rados",
+                    "-p", pool,
+                    "listwatchers",
+                    obj(n)],
+                stdout=StringIO())
+            lines = proc.stdout.getvalue().split("\n")
+            n = int(lines)
+            log.info('i see %d watchers', n)
+            if n >= num:
+                break
+            time.sleep(1)
 
     def notify(n, msg):
         remote.run(
