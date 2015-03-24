@@ -8,6 +8,7 @@ import logging
 import time
 
 from teuthology.orchestra import run
+from teuthology.contextutil import safe_while
 
 log = logging.getLogger(__name__)
 
