@@ -68,18 +68,28 @@ def task(ctx, config):
             stdout=StringIO(),
             stderr=StringIO(),
             wait=False)
-        # wait for first line indicating watch is registered and ready
-        # to see notify events
-        while True:
-            line = proc.stdout.readlines()
-            log.info(line)
-            if 'press enter' in line:
-                break
-            log.info('sleeping 1 second')
-            time.sleep(1)
         return proc
 
-    watches = [start_watch(i) for i in range(20)]
+    num = 20
+
+    watches = [start_watch(i) for i in range(num)]
+
+    # wait for them all to register
+    while True:
+        proc = remote.run(
+            args = [
+                "rados",
+                "-p", pool,
+                "listwatchers",
+                obj(n)],
+            stdout=StringIO())
+        lines = proc.stdout.getvalue().split("\n")
+        n = int(lines)
+        log.info('i see %d watchers', n)
+        if n => num:
+            break
+        time.sleep(1)
+
 
     def notify(n, msg):
         remote.run(
