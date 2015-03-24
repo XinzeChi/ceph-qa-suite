@@ -71,8 +71,8 @@ def task(ctx, config):
         time.sleep(5)
         # wait for first line indicating watch is registered and ready
         # to see notify events
-        while False:
-            line = proc.stdout.getvalue()
+        while True:
+            line = proc.stdout.read.getvalue()
             log.info(line)
             if 'press enter' in line:
                 break
