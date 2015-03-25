@@ -1,5 +1,5 @@
 tasks:
 - install:
-    branch: firefly
+    branch: firefly-blackports
 - ceph:
     fs: xfs
