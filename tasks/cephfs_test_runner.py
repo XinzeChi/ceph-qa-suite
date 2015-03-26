@@ -2,7 +2,7 @@ import contextlib
 import logging
 import os
 import unittest
-from unittest import suite, loader
+from unittest import suite, loader, case
 from teuthology.task import interactive
 from tasks.cephfs.filesystem import Filesystem
 
@@ -19,10 +19,24 @@ class DecoratingLoader(loader.TestLoader):
         self._params = params
         super(DecoratingLoader, self).__init__()
 
-    def loadTestsFromTestCase(self, testCaseClass):
+    def _apply_params(self, obj):
         for k, v in self._params.items():
-            setattr(testCaseClass, k, v)
+            setattr(obj, k, v)
+
+    def loadTestsFromTestCase(self, testCaseClass):
+        self._apply_params(testCaseClass)
         return super(DecoratingLoader, self).loadTestsFromTestCase(testCaseClass)
+
+    def loadTestsFromName(self, name, module=None):
+        result = super(DecoratingLoader, self).loadTestsFromName(name, module)
+
+        # Special case for when we were called with the name of a method, we get
+        # a suite with one TestCase
+        tests_in_result = list(result)
+        if len(tests_in_result) == 1 and isinstance(tests_in_result[0], case.TestCase):
+            self._apply_params(tests_in_result[0])
+
+        return result
 
 
 class LogStream(object):
